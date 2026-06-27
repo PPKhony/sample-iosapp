@@ -1,0 +1,45 @@
+name: Flutter iOS Build to IPA
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build_ios:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: 'stable'
+
+    - name: Get dependencies
+      run: flutter pub get
+
+    # 1. สั่ง Build สำหรับระบบจำลองเพื่อให้รวมร่างโครงสร้างได้โดยไม่ต้องมีใบเซอร์แท้
+    - name: Build iOS Frameworks
+      run: flutter build ios --simulator --no-codesign
+
+    # 2. ทำการรวบรวมและแปลงโฟลเดอร์ให้กลายเป็นไฟล์ Payload (.ipa) สำหรับสาย Sideload
+    - name: Package to IPA
+      run: |
+        mkdir -p Payload
+        mv build/ios/iphonesimulator/Runner.app Payload/
+        zip -r MyExpenseApp.ipa Payload
+
+    # 3. สั่งให้ GitHub Actions นำไฟล์ .ipa ที่สร้างเสร็จขึ้นมารอให้เราดาวน์โหลดบนหน้าเว็บ
+    - name: Upload IPA Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: iOS-Sideload-App
+        path: MyExpenseApp.ipa
